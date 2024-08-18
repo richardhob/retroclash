@@ -1,6 +1,7 @@
 # Basics from Retrocomputing with Clash
 
 Retro.First -> BASICs from Chapter 2
+Retro.Flippy -> Flippy from Chapter 4
 
 Programming the FPGA with the generated RTL is an exercise left for the readers.
 
@@ -31,3 +32,48 @@ handle just about everything else.
 - [X] Program
 
 IT WORKS!!! Button -> LED... ALL DONE. That's not too bad. :) 
+
+## Chapter 3 - 7 Segment display
+
+My FPGA does not have a 7 Segment display, so we will skip the examples here.
+Would have loved to have done some of this though.
+
+## Chapter 4 - Sequential Circuits
+
+Registers!!! Explicit registers:
+
+``` haskell
+Clash.Explicit.Prelude.register
+    :: (KnownDomain dom, NFDataX a)
+    => Clock dom        -- Clock signal driving the writing into the register
+        -> Reset dom    -- Reset signal that replaces the register value with the initial one
+        -> Enable dom   -- Enable / Disable register transfer (False -> don't do)
+        -> a            -- Initial value of the register
+        -> Signal dom a -- What is written into the register on each tick of the clock
+        -> Signal dom a -- Return: aka Output signal
+```
+
+Signal the output's True in the first cycle, and False otherwise:
+
+``` haskell
+helloRegister :: Clock System -> Reset System -> Enable System -> Signal System Bool
+helloRegister clk rst en = register clk rst en True (pure False)
+```
+
+"True" is the initial value, and "pure False" is what is written on each tick of
+the clock after.
+
+Note that the first two cycles of this circuit are "True" not just one. This is
+because of the simulator (which aligns with how the FPGA will behave) - in short
+the register outputs True before the first clock. This can be configured in the
+clock domain if we want (but we don't really care for this book).
+
+Let's create a more interesting circuit, one that flips between True and False:
+
+``` haskell
+flippy :: Clock System -> Reset System -> Enable System -> Signal System Bool
+flippy clk rst en = r
+    where r = register clk rst en True (not <$> r)
+```
+
+Exercise: write a "slow flippy" that goes "True True False False True True ..."
