@@ -77,3 +77,35 @@ flippy clk rst en = r
 ```
 
 Exercise: write a "slow flippy" that goes "True True False False True True ..."
+
+Solution:
+
+``` haskell
+flippy2 :: Clock System -> Reset System -> Enable System -> Signal System Bool
+flippy2 clk rst en = r2
+    where r1 = flippy clk rst en
+          r2 = register clk rst en (((not <$> r2) .&&. r1) .||. (r2 .&&. (not <$> r1)))
+```
+
+What I was trying to write was:
+
+``` haskell
+if r1 == True
+then not <$> r2
+else r2
+```
+
+But `if` statements are not allowed. You have to use boolean logics yo. Which
+makes sense. Need to dust off that part of my brain I guess!
+
+Logic in short: toggle the register 2 value if register 1 is true, otherwise
+keep the register value the same.
+
+## Chapter 4: Many Blinkys
+
+Starting with 4.3 Blinky - which has issues (Retro.Blinky) - it works!! Kinda
+neat. There's some witchcraft going on here I don't *quite* understand, but I'm
+sure that it will make more sense in time. :) 
+
+To make it build in Vivado, I had to enable the Clock line in the constraints
+file, which was kinda neat! I haven't had to do that before. BUT IT WORKS.

@@ -87,6 +87,7 @@ library
   exposed-modules:
     Retro.First
     Retro.Flippy
+    Retro.Blinky
   default-language: Haskell2010
 
 -- Builds the executable 'clash', with basics project in scope
