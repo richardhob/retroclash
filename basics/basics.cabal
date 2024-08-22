@@ -37,6 +37,10 @@ common common-options
     TypeOperators
     ViewPatterns
 
+    -- Added by MEEE
+    NumericUnderscores
+    PartialTypeSignatures
+
     -- TemplateHaskell is used to support convenience functions such as
     -- 'listToVecTH' and 'bLit'.
     TemplateHaskell
@@ -88,6 +92,7 @@ library
     Retro.First
     Retro.Flippy
     Retro.Blinky
+    Retro.Util
   default-language: Haskell2010
 
 -- Builds the executable 'clash', with basics project in scope
