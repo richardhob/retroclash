@@ -45,6 +45,11 @@ predIdx :: (Eq a, Enum a, Bounded a) => a -> Maybe a
 predIdx x | x == minBound = Nothing
           | otherwise = Just $ pred x
 
+-- Count up and roll over. This assu
+rollover :: (Eq a, Enum a, Bounded a) => a -> a
+rollover x | x == maxBound = minBound
+           | otherwise = succ x
+
 type Seconds        (s  :: Nat) = Milliseconds (1000 * s)
 type Milliseconds   (ms :: Nat) = Microseconds (1000 * ms)
 type Microseconds   (us :: Nat) = Nanoseconds  (1000 * us)
@@ -72,8 +77,7 @@ changed x0 x = x ./=. register x0 x
 
 debounce :: forall ps a dom. (Eq a, NFDataX a) 
          => (HiddenClockResetEnable dom, KnownNat (ClockDivider dom ps)) 
-         => SNat ps 
-         -> a -> Signal dom a -> Signal dom a
+         => SNat ps -> a -> Signal dom a -> Signal dom a
 debounce _ start this = regEn start stable this
     where counter = register (0 :: Index (ClockDivider dom ps)) counterNext
           counterNext = mux (changed start this) 0 (moreIdx <$> counter)

@@ -66,7 +66,7 @@ countOnOff (Off y) = maybe (On  0) Off $ succIdx y
               -- where x = register 0 ((maybeIncrement <$> blink) <*> x)
                     -- maybeIncrement (On v) = if v == 1 then ((+) 1) else ((+) 0)
                     -- maybeIncrement (Off _) = ((+) 0)
-
+--
 topEntity :: "CLK"    ::: Clock  System
           -> "BUTTON" ::: Signal System (Active High)
           -> "LED"    ::: Signal System (Active High)

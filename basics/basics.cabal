@@ -92,6 +92,7 @@ library
     Retro.First
     Retro.Flippy
     Retro.Blinky
+    Retro.Chapter3
     Retro.Util
   default-language: Haskell2010
 
