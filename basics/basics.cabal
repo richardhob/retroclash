@@ -94,6 +94,7 @@ library
     Retro.Blinky
     Retro.Chapter3
     Retro.Util
+    Retro.SevenSegment
   default-language: Haskell2010
 
 -- Builds the executable 'clash', with basics project in scope
