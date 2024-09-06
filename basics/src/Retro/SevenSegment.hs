@@ -57,5 +57,5 @@ topEntity = withResetEnableGen board
               speed = bitCoerce <$> switches
               cnt = regEn (0 :: Unsigned 8) fast $ mux (cnt .>=. speed) 0 (cnt + 1)
 
-          i = regEn 0 slow (nextIdx <$> i)
+          i = regEn 0 slow (rollover <$> i)
           anodes = oneHot <$> i
