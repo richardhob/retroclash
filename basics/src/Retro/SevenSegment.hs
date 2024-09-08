@@ -4,6 +4,7 @@ module Retro.SevenSegment where
 -- This is actually "Seven Segment Revisited" from Chapter 5
 
 import Clash.Prelude
+import Clash.Annotations.TH
 
 import Retro.Util
 
@@ -33,12 +34,11 @@ withResetEnableGen :: (KnownDomain dom)
                    -> Clock dom -> r
 withResetEnableGen board clk = withClockResetEnable clk resetGen enableGen board
 
-topEntity :: Clock System
-          -> Signal System (Vec 8 Bit) -- Either input switches
-          -> ( Signal System (Vec 4 (Active High))
-             , Signal System (Vec 7 (Active Low))
-             , Signal System (Active Low)
-             )
+topEntity :: "CLK" ::: Clock System
+          -> "SWITCHES" ::: Signal System (Vec 8 Bit) -- Either input switches
+          -> ("ANODES"   ::: Signal System (Vec 4 (Active High)) 
+             ,"SEGMENTS" ::: Signal System (Vec 7 (Active Low)) 
+             ,"DP"       ::: Signal System (Active Low))
 topEntity = withResetEnableGen board 
     where
       board switches = 
@@ -59,3 +59,5 @@ topEntity = withResetEnableGen board
 
           i = regEn 0 slow (rollover <$> i)
           anodes = oneHot <$> i
+
+makeTopEntity 'topEntity
