@@ -3,10 +3,47 @@ module Retro.SevenSegment where
 
 -- This is actually "Seven Segment Revisited" from Chapter 5
 
+import qualified Data.List as L
+
 import Clash.Prelude
 import Clash.Annotations.TH
 
 import Retro.Util
+
+-- Chapter 3 Stuff
+showSS :: Vec 7 Bool -> String
+showSS (a :> b :> c :> d :> e :> f :> g :> Nil) = unlines . L.concat $
+    [ L.replicate 1 $ horiz    a   
+    , L.replicate 3 $ vert   f   b 
+    , L.replicate 1 $ horiz    g   
+    , L.replicate 3 $ vert   e   c 
+    , L.replicate 1 $ horiz    d   ]
+    where horiz True =  " ###### "
+          horiz False = " ...... "
+
+          vert b1 b2 = part b1 <> "      " <> part b2
+            where part True =  "#"
+                  part False = "."
+
+encodeHexSS :: Unsigned 4 -> Vec 7 Bool
+encodeHexSS n = unpack $ case n of
+    --        abcdefg
+    0x0 -> 0b01111110
+    0x1 -> 0b00110000
+    0x2 -> 0b01101101
+    0x3 -> 0b01111001
+    0x4 -> 0b00110011
+    0x5 -> 0b01011011
+    0x6 -> 0b01011111
+    0x7 -> 0b01110000
+    0x8 -> 0b01111111
+    0x9 -> 0b01111011
+    0xA -> 0b01110111
+    0xB -> 0b00011111
+    0xC -> 0b01001110
+    0xD -> 0b00111101
+    0xE -> 0b01001111
+    0xF -> 0b01000111
 
 -- type ClockDivider dom n = n `Div` DomainPeriod dom
 
