@@ -96,13 +96,17 @@ data SevenSegment n anodes segments dp = SevenSegment {
     segments    :: Vec 7 (Active segments),
     dp          :: Active dp }
 
+-- Requires ApplicativeDo Language Extension
 driveSS :: (KnownNat n, HiddenClockResetEnable dom, _)
         => (a -> (Vec 7 Bool, Bool)) -> Signal dom (Vec n (Maybe a)) -> Signal dom (SevenSegment n anodes segments dp)
 driveSS draw digits = do
+
     anodes <- (map toActive <$> anodes1) 
     segments <- (map toActive <$> segments1) 
     dp <- (toActive <$> dp1) 
+
     return SevenSegment{..}
+
     where ps = risePeriod (SNat @(Milliseconds 1))
           (anodes1, digit) = muxRR ps digits
           (segments1, dp1) = unbundle $ maybe (repeat False, False) draw <$> digit
