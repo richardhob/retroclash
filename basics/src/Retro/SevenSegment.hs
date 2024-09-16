@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo #-}
 
 module Retro.SevenSegment where
 
@@ -89,23 +90,30 @@ muxRR tick xs = (selector, current)
     where (selector, i) = roundRobin tick
           current = xs .!!. i
 
-topEntity :: "CLK" ::: Clock System
-          -> "SWITCHES" ::: Signal System (Vec 8 Bit) -- Either input switches
-          -> ("ANODES"   ::: Signal System (Vec 4 (Active High)) 
-             ,"SEGMENTS" ::: Signal System (Vec 7 (Active Low)) 
-             ,"DP"       ::: Signal System (Active Low))
-topEntity = withResetEnableGen board 
-    where
-      board switches = 
-          ( map toActive <$> anodes
-          , map toActive <$> segments
-          , toActive <$> dp
-          )
-        where
-          digits = (repeat Nothing ++) <$> (map Just . bitCoerce <$> switches)
-          toSegments = maybe (repeat False) encodeHexSS
+-- 5.2.2 Data based Seven Segment Display
+data SevenSegment n anodes segments dp = SevenSegment { 
+    anodes      :: Vec n (Active anodes),
+    segments    :: Vec 7 (Active segments),
+    dp          :: Active dp }
 
-          (anodes, segments) = muxRR (riseRate (SNat @512)) $ map toSegments <$> digits
-          dp = pure False
+driveSS :: (KnownNat n, HiddenClockResetEnable dom, _)
+        => (a -> (Vec 7 Bool, Bool)) -> Signal dom (Vec n (Maybe a)) -> Signal dom (SevenSegment n anodes segments dp)
+driveSS draw digits = do
+    anodes <- (map toActive <$> anodes1) 
+    segments <- (map toActive <$> segments1) 
+    dp <- (toActive <$> dp1) 
+    return SevenSegment{..}
+    where ps = risePeriod (SNat @(Milliseconds 1))
+          (anodes1, digit) = muxRR ps digits
+          (segments1, dp1) = unbundle $ maybe (repeat False, False) draw <$> digit
+
+topEntity :: "CLK"      ::: Clock System
+          -> "SWITCHES" ::: Signal System (Vec 8 Bit) 
+          -> "SS"       ::: Signal System (SevenSegment 4 High Low Low)
+topEntity = withResetEnableGen board 
+  where 
+    board switches = driveSS toSegments digits
+      where digits = (repeat Nothing ++) . map Just . bitCoerce <$> switches
+            toSegments x = (encodeHexSS x, False)
 
 makeTopEntity 'topEntity
