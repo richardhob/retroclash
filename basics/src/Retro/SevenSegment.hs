@@ -44,6 +44,7 @@ encodeHexSS n = unpack $ case n of
     0xD -> 0b00111101
     0xE -> 0b01001111
     0xF -> 0b01000111
+    _   -> 0b00000000
 
 -- type ClockDivider dom n = n `Div` DomainPeriod dom
 
@@ -71,6 +72,23 @@ withResetEnableGen :: (KnownDomain dom)
                    -> Clock dom -> r
 withResetEnableGen board clk = withClockResetEnable clk resetGen enableGen board
 
+(.!!.) :: (KnownNat n, Enum i, Applicative f) => f (Vec n a) -> f i -> f a
+(.!!.) = liftA2 (!!)
+
+-- Update the "Round Robin" index when "Next" is True
+roundRobin :: forall n dom. (KnownNat n, HiddenClockResetEnable dom)
+           => Signal dom Bool -> (Signal dom (Vec n Bool), Signal dom (Index n))
+roundRobin next = (selector, i)
+    where i = regEn (0 :: Index n) next $ rollover <$> i
+          selector = bitCoerce . oneHot <$> i
+
+-- Rotate throught the output signals (xs) every "tick" cycles.
+muxRR :: (KnownNat n, HiddenClockResetEnable dom) 
+      => Signal dom Bool -> Signal dom (Vec n a) -> (Signal dom (Vec n Bool), Signal dom a)
+muxRR tick xs = (selector, current)
+    where (selector, i) = roundRobin tick
+          current = xs .!!. i
+
 topEntity :: "CLK" ::: Clock System
           -> "SWITCHES" ::: Signal System (Vec 8 Bit) -- Either input switches
           -> ("ANODES"   ::: Signal System (Vec 4 (Active High)) 
@@ -84,17 +102,10 @@ topEntity = withResetEnableGen board
           , toActive <$> dp
           )
         where
-          segments = pure $ repeat True
+          digits = (repeat Nothing ++) <$> (map Just . bitCoerce <$> switches)
+          toSegments = maybe (repeat False) encodeHexSS
+
+          (anodes, segments) = muxRR (riseRate (SNat @512)) $ map toSegments <$> digits
           dp = pure False
-
-          fast = riseRate (SNat @512)
-
-          slow = fast .&&. cnt .==. 0
-            where
-              speed = bitCoerce <$> switches
-              cnt = regEn (0 :: Unsigned 8) fast $ mux (cnt .>=. speed) 0 (cnt + 1)
-
-          i = regEn 0 slow (rollover <$> i)
-          anodes = oneHot <$> i
 
 makeTopEntity 'topEntity
