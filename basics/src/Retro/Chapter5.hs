@@ -1,6 +1,14 @@
-
 -- | Chapter 5 Assignments
 module Retro.Chapter5 where
+
+import Clash.Prelude
+
+import Retro.Util
+import Retro.SevenSegment
+
+-- Create Switches for testing
+--
+-- > let x = (toActive <$> (repeat False)) :: Vec 8 (Active High)
 
 -- 1. Given the 8 bit input from the switches, display them on three 7-segment
 --    displays in decimal
@@ -32,14 +40,19 @@ exercise1 switches = let
         0x9 -> 0b01111011
         _   -> 0b00000000
 
-    value    = register 0 (pack <$> switches)
-    ones     = register 0 (value `mod` 10)
-    tens     = register 0 (value `div` 10)
-    hundreds = register 0 (value `div` 100)
+    digits :: forall dom. (HiddenClockResetEnable dom) 
+           => Signal dom (Vec 8 (Active High)) -> Signal dom (Vec 3 (Maybe (Unsigned 4)))
+    digits s = doWork <$> s
+        where doWork :: Vec 8 (Active High) -> Vec 3 (Maybe (Unsigned 4))
+              doWork sw = hundreds :> tens :> ones :> Nil
+                  where value    = pack sw
+                        ones     = Just (to4 $ value `mod` 10)
+                        tens     = Just (to4 $ value `div` 10)
+                        hundreds = Just (to4 $ value `div` 100)
 
-    digits = hundreds :> tens :> ones :> Nil
+    to4 :: BitVector 8 -> Unsigned 4
+    to4 = bitCoerce . truncateB 
 
-    -- x has to be in base 10 already
     toSegments x = (encode10 x, False)
 
-    in driveSS toSegments digits
+    in driveSS toSegments (digits switches)

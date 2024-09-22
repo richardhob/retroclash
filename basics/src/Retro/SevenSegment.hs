@@ -1,4 +1,3 @@
-{-# LANGUAGE ApplicativeDo #-}
 
 module Retro.SevenSegment where
 
