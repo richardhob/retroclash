@@ -92,40 +92,37 @@ exercise2 switches = let
 
     in driveSS toSegments (digits switches)
 
+downCounter :: forall dom. (HiddenClockResetEnable dom)
+            => Unsigned 8 -> Signal dom (Vec 8 Bit)
+downCounter n = (bv2v . pack) <$> dc 
+    where dc = register n (dc - 1)
+
+to4 :: BitVector 8 -> Unsigned 4
+to4 = bitCoerce . truncateB 
+
+toDigits :: forall dom. (HiddenClockResetEnable dom)
+         => Vec 8 Bit -> Vec 3 (Maybe (Unsigned 4))
+toDigits sw = m_hundreds :> m_tens :> ones :> Nil
+    where value    = pack sw
+          ones     = Just (to4 $ value `mod` 10)
+
+          tens     = to4 $ value `div` 10
+          m_tens   = if tens == 0 then Nothing else (Just tens)
+
+          hundreds = to4 $ value `div` 100
+          m_hundreds = if hundreds == 0 then Nothing else (Just hundreds)
+
 -- Exercise 3
 -- ----------
 -- At the press of a pushbutton, start and display a countdown (in seconds)
 --
 -- OK COOL! So here we have to take exercise 2, and update it to display the
 -- value from a counter instead of from some switches (which is so cool).
-exercise3 :: (HiddenClockResetEnable dom, _)
+--
+-- I am skipping the switch for now and just implementing the down counter. We
+-- can modifiy the `downCounter` to count every second using a regEn. We can
+-- then determine if the down counter is down by checking if the value is 0.
+exercise3 :: forall dom. (HiddenClockResetEnable dom)
           => Signal dom (SevenSegment 3 High Low Low)
-exercise3 = let 
-    digits :: forall dom. (HiddenClockResetEnable dom) 
-           => Signal dom (Vec 8 (Active High)) -> Signal dom (Vec 3 (Maybe (Unsigned 4)))
-    digits s = doWork <$> s
-        where doWork :: Vec 8 (Active High) -> Vec 3 (Maybe (Unsigned 4))
-              doWork sw = m_hundreds :> m_tens :> ones :> Nil
-                  where value    = pack sw
-                        ones     = Just (to4 $ value `mod` 10)
-
-                        tens     = to4 $ value `div` 10
-                        m_tens   = if tens == 0 then Nothing else (Just tens)
-
-                        hundreds = to4 $ value `div` 100
-                        m_hundreds = if hundreds == 0 then Nothing else (Just hundreds)
-
-    to4 :: BitVector 8 -> Unsigned 4
-    to4 = bitCoerce . truncateB 
-
-    toSegments x = (encode10 x, False)
-
-    -- Copied from debounce kinda
-    countDown :: forall ps n dom. (HiddenClockResetEnable dom, KnownNat (ClockDivider dom ps), KnownNat n, _)
-              => SNat ps -> SNat n -> Signal dom (Vec 8 (Active High))
-    countDown _ n = let
-        counter = register (0 :: Index (ClockDivider dom ps)) (rollover <$> counter)
-        s = regEn (snatToNum n) ((0 ==) <$> counter) (s - 1)
-        in s
-
-    in driveSS toSegments (digits (countDown @(Seconds 1) @(10)))
+exercise3 = driveSS toSegments (toDigits <$> downCounter 10)
+    where toSegments x = (encode10 x, False)
