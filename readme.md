@@ -20,6 +20,7 @@ See:
 
 - [Default README](tutorial01/README.md)
 - [Clash Compiler Install Notes](docs/installing.rst)
+- [Seven Segment](docs/seven_segment.md)
 
 ## Quick Reference
 
