@@ -1,0 +1,12 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:seven-segment"
+    - path: "./tests/doctests.hs"
+      component: "seven-segment:doctests"
+    - path: "./tests"
+      component: "seven-segment:test-library"
+    - path: "./bin/Clashi.hs"
+      component: "seven-segment:exe:clashi"
+    - path: "./bin/Clash.hs"
+      component: "seven-segment:exe:clash"
