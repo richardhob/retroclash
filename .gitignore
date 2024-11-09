@@ -1,3 +1,4 @@
 .vscode
 oss-cad-suite/
 obj_dir/
+*.swp

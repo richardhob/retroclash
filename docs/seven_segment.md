@@ -293,16 +293,140 @@ This shows the HEX to SEGMENTS conversion in the cosole:
 0xf -> 0b01110001
 ```
 
-Pretty neat!
+Pretty neat! Timing:
+
+TODO: Timing diagram
 
 ### Clash
 
 So we have a test bench, and an implementation in Verilog. Let's write the same
 thing in Clash, and make sure it passes our tests.
 
+First, the BORING bits (but super necessary):
+
 ``` haskell
+import Clash.Prelude
+
+-- Create a domain with the frequency of your input clock (50 MHz)
+createDomain vSystem{vName="Dom50", vPeriod=hzToPeriod 50e6}
+
+topEntity ::
+  Clock Dom50 ->
+  Reset Dom50 ->
+  Enable Dom50 ->
+  Signal Dom50 (Unsigned 8) ->
+  Signal Dom50 (Unsigned 7, Bit)
+topEntity = exposeClockResetEnable sevenSegment
+
+-- Name our input and output signal
+{-# ANN topEntity
+  (Synthesize
+    { t_name = "accum"
+    , t_inputs = [ PortName "CLK"
+                 , PortName "RST"
+                 , PortName "EN"
+                 , PortName "DATA"
+                 ]
+    , t_output = PortProduct "" [PortName "SEGMENTS", PortName "SEL"]
+    }) #-}
+
+-- Prevent GHC from optimizing things
+{-# OPAQUE topEntity #-}
+```
+
+Now for the stuff that mirrors our Verilog:
+
+``` haskell
+counter :: (HiddenClockResetEnable dom) => Signal dom (Unsigned 8)
+counter = register 100 (reload <$> counter)
+    where reload v = if v == 0 then 100 else v - 1
+
+ssSelect :: (HiddenClockResetEnable dom) => Signal dom Bool
+ssSelect = register False (liftA2 check ssSelect counter)
+    where check v t = if t == 0 then not v else v
+
+iData :: (HiddenClockResetEnable dom) => Signal dom (Unsigned 8) -> Signal dom (Unsigned 4)
+iData hexData = register 0 (mux ssSelect (_upper <$> hexData) (_lower <$> hexData))
+    where _upper v = truncateB (v .>>. 4) :: Unsigned 4
+          _lower v = truncateB v :: Unsigned 4
+
+lookUp :: Unsigned 4 -> Unsigned 7
+lookUp v = case v of
+      0x0 -> 0b0111111
+      0x1 -> 0b0000110
+      0x2 -> 0b1011011
+      0x3 -> 0b1001111
+      0x4 -> 0b1100110
+      0x5 -> 0b1101101
+      0x6 -> 0b1011111
+      0x7 -> 0b0000111
+      0x8 -> 0b1111111
+      0x9 -> 0b1111011
+      0xA -> 0b1110111
+      0xB -> 0b1111100
+      0xC -> 0b0111001
+      0xD -> 0b1011110
+      0xE -> 0b1111001
+      0xF -> 0b1110001
+      _otherwise -> 0b0000000;
+
+-- Convert an Unsigned 8 input into a Dual seven segement output
+sevenSegment :: (HiddenClockResetEnable dom)
+             => Signal dom (Unsigned 8) 
+             -> Signal dom (Unsigned 7, Bit)
+sevenSegment hexData = bundle (lookUp    <$> iData hexData
+                              ,boolToBit <$> ssSelect)
 ```
 
 ### Tests in Clash
+
+``` haskell
+```
+
+------
+
+**__ASSIDE__** Why Bundle the Seven Segment Output?
+
+In short - it let's us `simulate` the function.
+
+Let's look at an alternate definition of the `sevenSegemen` function:
+
+``` haskell
+
+```
+
+``` bash
+> import Example.Project
+> simulate @System sevenSegement [0..16]
+<interactive>:16:18: error:
+    • Couldn't match type: (Signal System (Unsigned 7),
+                            Signal System Bit)
+                     with: Signal System b
+      Expected: Signal System (Unsigned 8) -> Signal System b
+        Actual: Signal System (Unsigned 8)
+                -> (Signal System (Unsigned 7), Signal System Bit)
+    • In the second argument of ‘simulate’, namely ‘sevenSegment’
+      In the expression: simulate @System sevenSegment [1 .. 16]
+      In an equation for ‘it’:
+          it = simulate @System sevenSegment [1 .. 16]
+    • Relevant bindings include it :: [b] (bound at <interactive>:16:1)
+```
+
+Let's check the `simulate` function type:
+
+``` haskell
+simulate
+  :: (KnownDomain dom, NFDataX a, NFDataX b) =>
+     (HiddenClockResetEnable dom => Signal dom a -> Signal dom b)
+     -> [a] -> [b]
+```
+
+`simulate` expects our function to accept one Signal and return one Signal.
+Which poses an interesting question: Should we `bundle` out inputs together?
+Should we `bundle` our outputs together?
+
+We only have one input right now, but we have to deal with the output
+
+------
 
 ### Conclusion
