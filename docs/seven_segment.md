@@ -378,26 +378,64 @@ sevenSegment hexData = bundle (lookUp    <$> iData hexData
                               ,boolToBit <$> ssSelect)
 ```
 
+### Verilate the Clash Output
+
 ### Tests in Clash
 
+We can also test our built Clash function in Clash. 
+
+We need a function to print the results:
+
 ``` haskell
+import Text.Printf
+
+printResults :: Int -> Int -> String
+printResults = printf "0x%x -> 0b%07b" 
+```
+
+And a way to create our simulation input:
+
+``` haskell
+import qualified Data.List as L
+simIn :: Int -> [Int]
+simIn n = L.concat $ [L.replicate n i | i <- [0..]]
+```
+
+And finally a way to only print every few outputs:
+
+``` haskell
+everyN :: Int -> [Int] -> [Int]
+everyN _ [] = []
+everyN n (x:xs)
+    | n <= 1 = x:xs
+    | otherwise = x:next
+    where next = everyN n (L.drop (n - 1) xs)
+```
+
+``` haskell
+clashi> import Example.Project
+clashi> import Text.Printf
+clashi> let x = simulateN @System 32 sevenSegment [0..]
+clashi> 
 ```
 
 ------
 
-**__ASSIDE__** Why Bundle the Seven Segment Output?
-
-In short - it let's us `simulate` the function.
-
-Let's look at an alternate definition of the `sevenSegemen` function:
+**__ASSIDE__** Why Bundle the Seven Segment Output? It makes it easier to
+simulate.
 
 ``` haskell
-
+sevenSegment' :: (HiddenClockResetEnable dom)
+              => Signal dom (Unsigned 8) 
+              -> (Signal dom (Unsigned 7), Signal dom Bit)
+sevenSegment' hexData = (lookUp <$> iData hexData, boolToBit <$> ssSelect)
 ```
 
+`sevenSegement'` is functionally the same as `sevenSegment`, but the output
+signals are NOT bundled. What happens when we try to simulate this?
+
 ``` bash
-> import Example.Project
-> simulate @System sevenSegement [0..16]
+clashi> simulate @System sevenSegement' [0..32]
 <interactive>:16:18: error:
     • Couldn't match type: (Signal System (Unsigned 7),
                             Signal System Bit)
@@ -412,20 +450,39 @@ Let's look at an alternate definition of the `sevenSegemen` function:
     • Relevant bindings include it :: [b] (bound at <interactive>:16:1)
 ```
 
-Let's check the `simulate` function type:
+We _could_ use `simulateB` instead to do this:
 
 ``` haskell
-simulate
-  :: (KnownDomain dom, NFDataX a, NFDataX b) =>
-     (HiddenClockResetEnable dom => Signal dom a -> Signal dom b)
-     -> [a] -> [b]
+clashi> simulateB @System sevenSegment' [0..32]
+[(63,0),(63,0),(6,0),(91,0),(79,0),(102,0),(109,0),(95,0),(7,0),(127,0),(123,0),(119,0),(124,0),(57,0),(9
+4,0),(121,0),(113,0),(63,0),(6,0),(91,0),(79,0),(102,0),(109,0),(95,0),(7,0),(127,0),(123,0),(119,0),(124
+,0),(57,0),(94,0),(121,0),(113,0),(63,0),(*** Exception: X: finite list
+CallStack (from HasCallStack):
+  errorX, called at src/Clash/Signal/Internal.hs:1693:57 in clash-prelude-1.8.1-72gLWAPSXgPDozrrxr9IhV:Cl
+ash.Signal.Internal
 ```
 
-`simulate` expects our function to accept one Signal and return one Signal.
-Which poses an interesting question: Should we `bundle` out inputs together?
-Should we `bundle` our outputs together?
+OR we could use `simulate` and bundle the signals:
 
-We only have one input right now, but we have to deal with the output
+``` haskell
+clashi> simulate @System (bundle . sevenSegment') [0..32]
+[(63,0),(63,0),(6,0),(91,0),(79,0),(102,0),(109,0),(95,0),(7,0),(127,0),(123,0),(119,0),(124,0),(57,0),(9
+4,0),(121,0),(113,0),(63,0),(6,0),(91,0),(79,0),(102,0),(109,0),(95,0),(7,0),(127,0),(123,0),(119,0),(124
+,0),(57,0),(94,0),(121,0),(113,0),(63,0),(*** Exception: X: finite list
+CallStack (from HasCallStack):
+  errorX, called at src/Clash/Signal/Internal.hs:1693:57 in clash-prelude-1.8.1-72gLWAPSXgPDozrrxr9IhV:Cl
+ash.Signal.Internal
+```
+
+The advantage to bundling the signals in the function is that we can use
+`simulateN` without having to call `bundle`, which is convenient.
+
+``` haskell
+clashi> simulateN @System 32 (bundle . sevenSegment') [0..]
+[(63,0),(63,0),(6,0),(91,0),(79,0),(102,0),(109,0),(95,0),(7,0),(127,0),(123,0),(119,0),(124,0),(57,0),(9
+4,0),(121,0),(113,0),(63,0),(6,0),(91,0),(79,0),(102,0),(109,0),(95,0),(7,0),(127,0),(123,0),(119,0),(124
+,0),(57,0),(94,0),(121,0)]
+```
 
 ------
 

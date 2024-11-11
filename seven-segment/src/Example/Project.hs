@@ -4,6 +4,9 @@
 
 module Example.Project where
 
+import qualified Data.List as L
+import Text.Printf
+
 import Clash.Prelude
 
 -- Create a domain with the frequency of your input clock. For this example we used
@@ -88,3 +91,40 @@ sevenSegment' :: (HiddenClockResetEnable dom)
               -> (Signal dom (Unsigned 7), Signal dom Bit)
 sevenSegment' hexData = (lookUp    <$> iData hexData
                        ,boolToBit <$> ssSelect)
+
+-- Functions for testing only 
+printResults :: Unsigned 8 -> Unsigned 7 -> String
+printResults = printf "0x%x -> 0b%07b" 
+
+-- Similar to stimultiGenerator From Clash Testbench
+-- 
+-- https://hackage.haskell.org/package/clash-prelude-1.8.1/docs/Clash-Explicit-Testbench.html
+simIn :: Int -> [Int]
+simIn n = L.concat $ [L.replicate n i | i <- [0..]]
+
+-- Take even N samples from the input list
+--
+-- This is tricky because we have to wait one clock for the input to be 'good'.
+everyN :: Int -> [a] -> [a]
+everyN _ [] = []
+everyN n (x:xs)
+    | n <= 1 = x:xs
+    | otherwise = x:next
+    where next = everyN n (L.drop (n - 1) xs)
+
+doSimulation :: Int -> IO () 
+doSimulation n = mapM_ putStrLn (everyN n results)
+    where results :: [String]
+          results = L.map (uncurry printResults) _zipSim
+
+          testData :: [Unsigned 8]
+          testData = L.map fromIntegral $ simIn n
+
+          -- Adding an extra '1' allows us to get the data lines up
+          testData' = 1:testData
+
+          _zipSim :: [(Unsigned 8, Unsigned 7)]
+          _zipSim = L.zip testData' $ L.map fst _sim
+
+          _sim :: [(Unsigned 7, Bit)]
+          _sim = simulateN @System (n * 16) sevenSegment testData'
